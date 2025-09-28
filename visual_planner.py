@@ -4,7 +4,6 @@ import calendar
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.pdfgen import canvas
 
-
 class VisualPlannerApp:
     def __init__(self, root):
             self.root = root
@@ -76,8 +75,13 @@ class VisualPlannerApp:
                         txt = str(day)
                     tk.Label(frame, text=txt, width=5, height=2, borderwidth=1, relief="solid").grid(row=r, column=c)
 
+
+
     def save_pdf(self):
-        file_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")])
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF Files", "*.pdf")]
+        )
         if not file_path:
             return
 
@@ -85,7 +89,10 @@ class VisualPlannerApp:
         year = int(self.year_entry.get())
         months_count = int(self.month_count.get())
 
-        c = canvas.Canvas(file_path, pagesize=landscape(letter))
+        page_w, page_h = landscape(letter)
+        margin = 40
+
+        c = canvas.Canvas(file_path, pagesize=(page_w, page_h))
 
         for i in range(months_count):
             month = (start_month + i - 1) % 12 + 1
@@ -95,38 +102,52 @@ class VisualPlannerApp:
             cal = calendar.Calendar(firstweekday=0)
             month_days = cal.monthdayscalendar(current_year, month)
 
-            # Title
-            c.setFont("Helvetica-Bold", 20)
-            c.drawCentredString(400, 560, f"{calendar.month_name[month]} {current_year}")
+            # --- Title ---
+            title_font_size = 20
+            c.setFont("Helvetica-Bold", title_font_size)
+            title_y = page_h - margin
+            c.drawCentredString(page_w / 2, title_y, f"{calendar.month_name[month]} {current_year}")
 
-            # Table position
-            x_start, y_start = 50, 500
-            cell_w, cell_h = 80, 50
+            # --- Table layout ---
+            gap = 40  # khoảng cách giữa baseline của title và đỉnh bảng (bạn có thể chỉnh)
+            table_top_y = title_y - title_font_size - gap  # đây là "đỉnh" của bảng (y lớn hơn)
+            table_w = page_w - 2 * margin
+            table_h = table_top_y - margin  # khoảng cao từ đỉnh bảng xuống lề dưới
+            cell_w = table_w / 7
+            cell_h = table_h / (len(month_days) + 1)  # +1 cho header row
+
+            x_start = margin
+            y_top = table_top_y  # tên rõ ràng: y_top = đỉnh của bảng
 
             days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-            # Draw header row
+            # --- Header row ---
+            c.setFont("Helvetica-Bold", 10)
+            header_bottom_y = y_top - cell_h  # bottom của ô header
             for j, d in enumerate(days):
                 x = x_start + j * cell_w
-                y = y_start
-                c.rect(x, y, cell_w, cell_h)  # ô khung
-                c.setFont("Helvetica-Bold", 10)
-                c.drawCentredString(x + cell_w / 2, y + cell_h / 2, d)
+                y = header_bottom_y
+                c.rect(x, y, cell_w, cell_h)
+                c.drawCentredString(x + cell_w / 2, y + cell_h / 2 - 3, d)
 
-            # Draw dates
+            # --- Days ---
+            # Với mỗi tuần r (0-based), bottom y = y_top - (r + 2) * cell_h
+            # (vì header đã chiếm 1 hàng)
+            c.setFont("Helvetica", 8)
             for r, week in enumerate(month_days):
                 for cidx, day in enumerate(week):
                     x = x_start + cidx * cell_w
-                    y = y_start - (r + 1) * cell_h
-                    c.rect(x, y, cell_w, cell_h)  # ô khung
+                    y = y_top - (r + 2) * cell_h
+                    c.rect(x, y, cell_w, cell_h)
                     if day != 0:
-                        c.setFont("Helvetica", 10)
-                        c.drawCentredString(x + cell_w / 2, y + cell_h / 2, str(day))
+                        c.drawString(x + 3, y + cell_h - 10, str(day))
 
             c.showPage()
 
         c.save()
         messagebox.showinfo("Success", "Planner saved as PDF!")
+
+
 
 if __name__ == "__main__":
     root = tk.Tk()
